@@ -1,11 +1,16 @@
-import { Flame, Dumbbell } from 'lucide-react'
+import { Flame, Dumbbell, Sun, Moon } from 'lucide-react'
+import SyncIndicator from './SyncIndicator'
+import type { SyncStatus } from '../hooks/useSyncStatus'
+import { useTheme } from '../hooks/useTheme'
 
 interface HeaderProps {
   progressPercent?: number
   showProgress?: boolean
+  syncStatus?: SyncStatus
 }
 
-export default function Header({ progressPercent = 0, showProgress = true }: HeaderProps) {
+export default function Header({ progressPercent = 0, showProgress = true, syncStatus }: HeaderProps) {
+  const [theme, setTheme] = useTheme()
   return (
     <header className="sticky top-0 z-50 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/50 pt-6 pb-4 px-4">
       <div className="flex items-center justify-between">
@@ -15,7 +20,18 @@ export default function Header({ progressPercent = 0, showProgress = true }: Hea
             PRIME TRACKER
           </h1>
         </div>
-        <Dumbbell className="text-emerald-500/50" size={28} />
+        <div className="flex items-center gap-2">
+          {syncStatus && <SyncIndicator status={syncStatus} />}
+          <button
+            type="button"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-800 hover:text-emerald-400 touch-manipulation focus-visible:ring-2 focus-visible:ring-emerald-500"
+            aria-label="Alternar tema claro/oscuro"
+          >
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+          <Dumbbell className="text-emerald-500/50" size={28} aria-hidden />
+        </div>
       </div>
       {showProgress && (
         <>

@@ -1,5 +1,38 @@
 @import "tailwindcss";
 
+:root,
+.dark {
+  color-scheme: dark;
+}
+
+.light {
+  color-scheme: light;
+}
+
+.light body {
+  background-color: #f4f4f5;
+}
+
+.light .bg-zinc-950 {
+  background-color: #f4f4f5;
+}
+
+.light .text-zinc-100 {
+  color: #18181b;
+}
+
+.light .text-zinc-500 {
+  color: #52525b;
+}
+
+.light .bg-zinc-900 {
+  background-color: #e4e4e7;
+}
+
+.light .border-zinc-800 {
+  border-color: #d4d4d8;
+}
+
 /* Safe area para iPhone notch */
 :root {
   --sat: env(safe-area-inset-top);

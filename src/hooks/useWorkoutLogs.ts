@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { openIDB } from '../lib/idb'
 import type { WorkoutLogs } from '../lib/supabase'
+import type { SyncStatus } from './useSyncStatus'
 
 const IDB_STORE = 'workout_logs'
 const IDB_KEY = 'logs'
 const DEBOUNCE_MS = 1000
+const RETRY_MS = 30000
 
 async function getFromIDB(): Promise<WorkoutLogs> {
   const db = await openIDB()
@@ -28,32 +30,69 @@ async function setToIDB(logs: WorkoutLogs): Promise<void> {
   })
 }
 
-export function useWorkoutLogs(userId: string | null) {
+function mergeLogs(remote: WorkoutLogs, local: WorkoutLogs): WorkoutLogs {
+  const merged = { ...remote }
+  for (const [exId, sets] of Object.entries(local)) {
+    if (!merged[exId]) merged[exId] = {}
+    for (const [setIdx, data] of Object.entries(sets)) {
+      const si = Number(setIdx)
+      const existing = merged[exId][si]
+      if (!existing || (data.done && !existing.done) || (data.weight && !existing.weight)) {
+        merged[exId][si] = { ...(merged[exId][si] || {}), ...data }
+      }
+    }
+  }
+  return merged
+}
+
+export function useWorkoutLogs(
+  userId: string | null,
+  setSyncStatus?: (s: SyncStatus) => void
+) {
   const [logs, setLogs] = useState<WorkoutLogs>({})
   const [loading, setLoading] = useState(true)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingLogsRef = useRef<WorkoutLogs | null>(null)
   const isInitialLoad = useRef(true)
 
   const loadLogs = useCallback(async () => {
     if (supabase && userId) {
-      const { data } = await supabase
-        .from('user_workout_logs')
-        .select('logs')
-        .eq('user_id', userId)
-        .maybeSingle()
-      if (data?.logs && typeof data.logs === 'object') {
-        return data.logs as WorkoutLogs
+      setSyncStatus?.('syncing')
+      try {
+        const { data } = await supabase
+          .from('user_workout_logs')
+          .select('logs')
+          .eq('user_id', userId)
+          .maybeSingle()
+        const remote = (data?.logs && typeof data.logs === 'object') ? (data.logs as WorkoutLogs) : {}
+        const local = await getFromIDB()
+        const merged = Object.keys(remote).length > 0 || Object.keys(local).length === 0
+          ? mergeLogs(remote, local)
+          : local
+        if (Object.keys(merged).length > 0 && (Object.keys(remote).length === 0 || JSON.stringify(merged) !== JSON.stringify(remote))) {
+          await supabase
+            .from('user_workout_logs')
+            .upsert({ user_id: userId, logs: merged, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+          await setToIDB(merged)
+        } else {
+          await setToIDB(merged)
+        }
+        setSyncStatus?.('online')
+        return merged
+      } catch {
+        setSyncStatus?.('error')
+        const local = await getFromIDB()
+        return local
       }
     }
     return getFromIDB()
-  }, [userId])
+  }, [userId, setSyncStatus])
 
   useEffect(() => {
     let cancelled = false
     loadLogs().then((loaded) => {
-      if (!cancelled) {
-        setLogs(loaded)
-      }
+      if (!cancelled) setLogs(loaded)
     }).finally(() => {
       if (!cancelled) setLoading(false)
     })
@@ -61,13 +100,27 @@ export function useWorkoutLogs(userId: string | null) {
   }, [loadLogs])
 
   const persist = useCallback(async (newLogs: WorkoutLogs) => {
-    await setToIDB(newLogs)
-    if (supabase && userId) {
-      await supabase
-        .from('user_workout_logs')
-        .upsert({ user_id: userId, logs: newLogs, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+    try {
+      await setToIDB(newLogs)
+      if (supabase && userId) {
+        setSyncStatus?.('syncing')
+        const { error } = await supabase
+          .from('user_workout_logs')
+          .upsert({ user_id: userId, logs: newLogs, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+        if (error) throw error
+        setSyncStatus?.('online')
+        pendingLogsRef.current = null
+      }
+    } catch {
+      if (navigator.onLine) setSyncStatus?.('error')
+      pendingLogsRef.current = newLogs
+      if (retryRef.current) clearTimeout(retryRef.current)
+      retryRef.current = setTimeout(() => {
+        retryRef.current = null
+        if (pendingLogsRef.current) persist(pendingLogsRef.current).catch(console.error)
+      }, RETRY_MS)
     }
-  }, [userId])
+  }, [userId, setSyncStatus])
 
   const schedulePersist = useCallback((newLogs: WorkoutLogs) => {
     if (debounceRef.current) clearTimeout(debounceRef.current)

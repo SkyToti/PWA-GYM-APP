@@ -11,7 +11,9 @@ export default function TabNav({ activeTab, onTabChange }: TabNavProps) {
       <button
         type="button"
         onClick={() => onTabChange('workout')}
-        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all min-h-[44px] touch-manipulation ${
+        aria-pressed={activeTab === 'workout'}
+        aria-label="Ver entrenamiento"
+        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all min-h-[44px] touch-manipulation focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
           activeTab === 'workout'
             ? 'bg-emerald-500 text-zinc-950 shadow-lg'
             : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
@@ -23,7 +25,9 @@ export default function TabNav({ activeTab, onTabChange }: TabNavProps) {
       <button
         type="button"
         onClick={() => onTabChange('progress')}
-        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all min-h-[44px] touch-manipulation ${
+        aria-pressed={activeTab === 'progress'}
+        aria-label="Ver progreso"
+        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all min-h-[44px] touch-manipulation focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
           activeTab === 'progress'
             ? 'bg-emerald-500 text-zinc-950 shadow-lg'
             : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'

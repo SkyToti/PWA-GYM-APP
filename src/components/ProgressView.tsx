@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Trophy, Calendar, Flame, Trash2, Target, TrendingUp, Zap } from 'lucide-react'
+import { ChevronDown, ChevronUp, Trophy, Calendar, Flame, Trash2, Target, TrendingUp, Zap, Download } from 'lucide-react'
 import { useWorkoutSessions } from '../hooks/useWorkoutSessions'
 import { deleteSession } from '../lib/sessions'
 import {
@@ -7,11 +7,14 @@ import {
   computeProgressions,
   computeSessionStats,
   computeStreak,
+  computeWeekComparison,
 } from '../lib/progressMetrics'
+import { getGoalWorkouts } from '../lib/preferences'
 import { routine } from '../lib/routine'
 import type { WorkoutSession } from '../lib/sessions'
 import TabNav from './TabNav'
 import Header from './Header'
+import { ProgressSkeleton } from './Skeleton'
 
 interface ProgressViewProps {
   userId: string | null
@@ -92,12 +95,12 @@ function SessionCard({ session, expanded, onToggle, onDelete }: SessionCardProps
         <button
           type="button"
           onClick={handleDelete}
-          className={`p-3 m-2 rounded-xl transition-all min-h-[44px] min-w-[44px] touch-manipulation flex items-center justify-center ${
+          aria-label={confirmDelete ? 'Confirmar eliminar sesión' : 'Eliminar sesión'}
+          className={`p-3 m-2 rounded-xl transition-all min-h-[44px] min-w-[44px] touch-manipulation flex items-center justify-center focus-visible:ring-2 focus-visible:ring-red-500 ${
             confirmDelete ? 'bg-red-500/20 text-red-400' : 'text-zinc-500 hover:bg-zinc-800 hover:text-red-400'
           }`}
-          title={confirmDelete ? 'Toca de nuevo para confirmar' : 'Eliminar'}
         >
-          <Trash2 size={18} />
+          <Trash2 size={18} aria-hidden />
         </button>
       </div>
 
@@ -140,17 +143,34 @@ export default function ProgressView({ userId, activeTab, onTabChange }: Progres
   const filtered = filterDay === 'all' ? sessions : sessions.filter(s => s.day_id === filterDay)
 
   const totalSessions = sessions.length
-  const thisWeek = sessions.filter(s => {
-    const d = new Date(s.completed_at)
-    const now = new Date()
-    const diffDays = (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24)
-    return diffDays <= 7
-  }).length
+  const { thisWeek, lastWeek } = computeWeekComparison(sessions)
   const streak = computeStreak(sessions)
+  const goal = getGoalWorkouts()
   const stats = computeSessionStats(sessions)
   const totalVolume = stats.reduce((a, s) => a + s.volume, 0)
-  const prs = computePRs(sessions)
+  const [prFilterDay, setPrFilterDay] = useState<string>('all')
+  const allPrs = computePRs(sessions)
+  const prs = prFilterDay === 'all' ? allPrs : allPrs.filter(p => p.dayId === prFilterDay)
   const progressions = computeProgressions(sessions).slice(0, 10)
+
+  const handleExport = () => {
+    const data = JSON.stringify({
+      exportDate: new Date().toISOString(),
+      sessions: sessions.map(s => ({
+        id: s.id,
+        day_id: s.day_id,
+        completed_at: s.completed_at,
+        logs: s.logs,
+      })),
+    }, null, 2)
+    const blob = new Blob([data], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `prime-tracker-export-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   const handleDelete = async (sessionId: string) => {
     try {
@@ -160,6 +180,18 @@ export default function ProgressView({ userId, activeTab, onTabChange }: Progres
     } catch (e) {
       console.error('Error eliminando:', e)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950">
+        <Header showProgress={false} />
+        <TabNav activeTab={activeTab} onTabChange={onTabChange} />
+        <div className="p-4 pt-2">
+          <ProgressSkeleton />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -183,6 +215,7 @@ export default function ProgressView({ userId, activeTab, onTabChange }: Progres
               Esta semana
             </div>
             <p className="text-xl font-black text-teal-400">{thisWeek}</p>
+            <p className="text-[10px] text-zinc-600 mt-0.5">Sem. ant.: {lastWeek}</p>
           </div>
           <div className="bg-zinc-900/60 rounded-2xl p-4 border border-zinc-800/50">
             <div className="flex items-center gap-2 text-zinc-500 text-xs mb-1">
@@ -201,6 +234,30 @@ export default function ProgressView({ userId, activeTab, onTabChange }: Progres
             </p>
           </div>
         </div>
+
+        {/* Goal bar */}
+        <div className="mb-4 bg-zinc-900/60 rounded-2xl p-4 border border-zinc-800/50">
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-zinc-500">Objetivo semanal</span>
+            <span className="text-emerald-400 font-bold">{thisWeek}/{goal}</span>
+          </div>
+          <div className="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+            <div
+              className="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full transition-all"
+              style={{ width: `${Math.min(100, (thisWeek / goal) * 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Export */}
+        <button
+          type="button"
+          onClick={handleExport}
+          className="w-full mb-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-emerald-400 hover:border-emerald-500/50 flex items-center justify-center gap-2 text-sm font-medium touch-manipulation"
+        >
+          <Download size={16} aria-hidden />
+          Exportar datos (JSON)
+        </button>
 
         {/* View mode tabs */}
         <div className="flex gap-1 p-1 bg-zinc-900/50 rounded-xl mb-4">
@@ -247,9 +304,7 @@ export default function ProgressView({ userId, activeTab, onTabChange }: Progres
               ))}
             </div>
 
-            {loading ? (
-              <p className="text-center text-zinc-500 py-12">Cargando historial...</p>
-            ) : filtered.length === 0 ? (
+            {filtered.length === 0 ? (
               <div className="text-center py-12 bg-zinc-900/40 rounded-2xl border border-zinc-800/50">
                 <Trophy size={40} className="mx-auto text-zinc-600 mb-2" />
                 <p className="text-zinc-500 font-medium">Aún no hay entrenos</p>
@@ -274,6 +329,29 @@ export default function ProgressView({ userId, activeTab, onTabChange }: Progres
         {/* PRs view */}
         {viewMode === 'prs' && (
           <div className="space-y-3">
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <button
+                type="button"
+                onClick={() => setPrFilterDay('all')}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap ${
+                  prFilterDay === 'all' ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-900 text-zinc-400'
+                }`}
+              >
+                Todos
+              </button>
+              {Object.values(routine).map((day) => (
+                <button
+                  key={day.id}
+                  type="button"
+                  onClick={() => setPrFilterDay(day.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap ${
+                    prFilterDay === day.id ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-900 text-zinc-400'
+                  }`}
+                >
+                  {day.title.split(':')[0]}
+                </button>
+              ))}
+            </div>
             {prs.length === 0 ? (
               <div className="text-center py-12 bg-zinc-900/40 rounded-2xl border border-zinc-800/50">
                 <Target size={40} className="mx-auto text-zinc-600 mb-2" />
@@ -283,7 +361,7 @@ export default function ProgressView({ userId, activeTab, onTabChange }: Progres
             ) : (
               prs.map((pr) => (
                 <div
-                  key={pr.exerciseId}
+                  key={`${pr.exerciseId}-${pr.sessionId}`}
                   className="bg-zinc-900/60 rounded-2xl p-4 border border-zinc-800/50 flex items-center justify-between"
                 >
                   <div>
@@ -291,8 +369,8 @@ export default function ProgressView({ userId, activeTab, onTabChange }: Progres
                     <p className="text-xs text-zinc-500">{pr.dayName} · {formatShortDate(pr.date)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-emerald-400 font-black text-lg">{pr.maxWeight} kg</p>
-                    <p className="text-xs text-zinc-500">× {pr.maxReps} reps</p>
+                    <p className="text-emerald-400 font-black text-lg">{pr.maxWeight} kg × {pr.maxReps}</p>
+                    <p className="text-xs text-teal-400 font-medium">1RM est. {pr.estimated1RM} kg</p>
                   </div>
                 </div>
               ))

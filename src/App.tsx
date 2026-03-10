@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { supabase } from './lib/supabase'
 import Auth from './components/Auth'
 import WorkoutView from './components/WorkoutView'
-import ProgressView from './components/ProgressView'
+
+const ProgressView = lazy(() => import('./components/ProgressView'))
+import UpdatePrompt from './components/UpdatePrompt'
+import InstallPrompt from './components/InstallPrompt'
 
 export default function App() {
   const [userId, setUserId] = useState<string | null>(null)
@@ -39,14 +42,24 @@ export default function App() {
     return <Auth onAuth={() => setSkippedAuth(true)} />
   }
 
-  return <MainApp userId={userId} />
+  return (
+    <>
+      <MainApp userId={userId} />
+      <UpdatePrompt />
+      <InstallPrompt />
+    </>
+  )
 }
 
 function MainApp({ userId }: { userId: string | null }) {
   const [activeTab, setActiveTab] = useState<'workout' | 'progress'>('workout')
-  return activeTab === 'workout' ? (
-    <WorkoutView userId={userId} activeTab={activeTab} onTabChange={setActiveTab} />
-  ) : (
-    <ProgressView userId={userId} activeTab={activeTab} onTabChange={setActiveTab} />
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-zinc-950 flex items-center justify-center"><p className="text-zinc-500">Cargando...</p></div>}>
+      {activeTab === 'workout' ? (
+        <WorkoutView userId={userId} activeTab={activeTab} onTabChange={setActiveTab} />
+      ) : (
+        <ProgressView userId={userId} activeTab={activeTab} onTabChange={setActiveTab} />
+      )}
+    </Suspense>
   )
 }

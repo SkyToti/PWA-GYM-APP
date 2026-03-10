@@ -8,8 +8,16 @@ export interface ExercisePR {
   dayName: string
   maxWeight: number
   maxReps: number
+  estimated1RM: number
   date: string
   sessionId: string
+}
+
+/** Epley: 1RM ≈ weight × (1 + reps/30) */
+export function estimate1RM(weight: number, reps: number): number {
+  if (weight <= 0) return 0
+  if (reps <= 1) return weight
+  return Math.round(weight * (1 + reps / 30) * 10) / 10
 }
 
 export interface ExerciseProgression {
@@ -99,11 +107,12 @@ export function computePRs(sessions: WorkoutSession[]): ExercisePR[] {
       dayName: getDayName(session?.day_id ?? ''),
       maxWeight: best.weight,
       maxReps: best.reps,
+      estimated1RM: estimate1RM(best.weight, best.reps),
       date: best.date,
       sessionId: best.sessionId,
     })
   }
-  return prs.sort((a, b) => b.maxWeight - a.maxWeight)
+  return prs.sort((a, b) => b.estimated1RM - a.estimated1RM)
 }
 
 export function computeProgressions(sessions: WorkoutSession[], limitPerExercise = 8): ExerciseProgression[] {
@@ -180,6 +189,29 @@ export function computeSessionStats(sessions: WorkoutSession[]): SessionStats[] 
       totalSets,
     }
   })
+}
+
+export function computeWeekComparison(sessions: WorkoutSession[]): { thisWeek: number; lastWeek: number } {
+  const now = new Date()
+  const thisWeekStart = new Date(now)
+  thisWeekStart.setDate(now.getDate() - now.getDay())
+  thisWeekStart.setHours(0, 0, 0, 0)
+  const lastWeekStart = new Date(thisWeekStart)
+  lastWeekStart.setDate(lastWeekStart.getDate() - 7)
+  let thisWeek = 0
+  let lastWeek = 0
+  const seenThis = new Set<string>()
+  const seenLast = new Set<string>()
+  for (const s of sessions) {
+    const d = new Date(s.completed_at)
+    const dateKey = s.completed_at.slice(0, 10)
+    if (d >= thisWeekStart) {
+      if (!seenThis.has(dateKey)) { seenThis.add(dateKey); thisWeek++ }
+    } else if (d >= lastWeekStart && d < thisWeekStart) {
+      if (!seenLast.has(dateKey)) { seenLast.add(dateKey); lastWeek++ }
+    }
+  }
+  return { thisWeek, lastWeek }
 }
 
 export function computeStreak(sessions: WorkoutSession[]): number {
