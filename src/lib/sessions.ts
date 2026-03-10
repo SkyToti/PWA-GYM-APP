@@ -47,6 +47,29 @@ export async function saveSessionToHistory(
   })
 }
 
+export async function deleteSession(
+  userId: string | null,
+  sessionId: string
+): Promise<void> {
+  if (supabase && userId) {
+    const { error } = await supabase
+      .from('workout_sessions')
+      .delete()
+      .eq('id', sessionId)
+      .eq('user_id', userId)
+    if (error) throw error
+    return
+  }
+
+  const db = await openIDB()
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('workout_sessions', 'readwrite')
+    tx.objectStore('workout_sessions').delete(sessionId)
+    tx.oncomplete = () => { db.close(); resolve() }
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
 export async function fetchSessions(userId: string | null, limit = 50): Promise<WorkoutSession[]> {
   if (supabase && userId) {
     const { data, error } = await supabase

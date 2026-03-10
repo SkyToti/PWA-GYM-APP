@@ -22,7 +22,8 @@ npm install
 1. Crea un proyecto en [supabase.com](https://supabase.com)
 2. En el SQL Editor, ejecuta en orden:
    - `supabase/migrations/001_user_workout_logs.sql`
-   - `supabase/migrations/002_workout_sessions.sql` (para historial de progreso)
+   - `supabase/migrations/002_workout_sessions.sql` (historial de progreso)
+   - `supabase/migrations/003_workout_sessions_delete_policy.sql` (permitir eliminar sesiones)
 3. Copia `.env.example` a `.env` y rellena:
    - `VITE_SUPABASE_URL`: URL de tu proyecto
    - `VITE_SUPABASE_ANON_KEY`: clave anónima (Settings > API)
