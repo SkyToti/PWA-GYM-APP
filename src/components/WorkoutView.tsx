@@ -2,17 +2,21 @@ import { useState, useEffect } from 'react'
 import { Calendar } from 'lucide-react'
 import { routine } from '../lib/routine'
 import { useWorkoutLogs } from '../hooks/useWorkoutLogs'
+import { saveSessionToHistory } from '../lib/sessions'
 import Header from './Header'
 import DaySelector from './DaySelector'
 import ExerciseCard from './ExerciseCard'
 import RestTimer from './RestTimer'
 import SaveButton from './SaveButton'
+import TabNav from './TabNav'
 
 interface WorkoutViewProps {
   userId: string | null
+  activeTab: 'workout' | 'progress'
+  onTabChange: (tab: 'workout' | 'progress') => void
 }
 
-export default function WorkoutView({ userId }: WorkoutViewProps) {
+export default function WorkoutView({ userId, activeTab, onTabChange }: WorkoutViewProps) {
   const [activeDay, setActiveDay] = useState('day1')
   const [isSaved, setIsSaved] = useState(false)
   const [restTime, setRestTime] = useState(0)
@@ -45,9 +49,14 @@ export default function WorkoutView({ userId }: WorkoutViewProps) {
     })
   }
 
-  const saveSession = () => {
-    setIsSaved(true)
-    setTimeout(() => setIsSaved(false), 3000)
+  const saveSession = async () => {
+    try {
+      await saveSessionToHistory(userId, activeDay, logs)
+      setIsSaved(true)
+      setTimeout(() => setIsSaved(false), 3000)
+    } catch (e) {
+      console.error('Error guardando sesión:', e)
+    }
   }
 
   if (loading) {
@@ -61,6 +70,7 @@ export default function WorkoutView({ userId }: WorkoutViewProps) {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans pb-36 selection:bg-emerald-500/30">
       <Header progressPercent={progressPercent} />
+      <TabNav activeTab={activeTab} onTabChange={onTabChange} />
 
       <div className="p-4 pt-6">
         <DaySelector routine={routine} activeDay={activeDay} onSelectDay={setActiveDay} />
@@ -93,7 +103,7 @@ export default function WorkoutView({ userId }: WorkoutViewProps) {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-zinc-950/80 backdrop-blur-xl border-t border-zinc-800/50 pb-8" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-zinc-950/80 backdrop-blur-xl border-t border-zinc-800/50 pb-24" style={{ paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom) + 4rem))' }}>
         <SaveButton isSaved={isSaved} onSave={saveSession} />
       </div>
     </div>

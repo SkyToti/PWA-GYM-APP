@@ -20,7 +20,9 @@ npm install
 ### 2. Configurar Supabase
 
 1. Crea un proyecto en [supabase.com](https://supabase.com)
-2. En el SQL Editor, ejecuta el contenido de `supabase/migrations/001_user_workout_logs.sql`
+2. En el SQL Editor, ejecuta en orden:
+   - `supabase/migrations/001_user_workout_logs.sql`
+   - `supabase/migrations/002_workout_sessions.sql` (para historial de progreso)
 3. Copia `.env.example` a `.env` y rellena:
    - `VITE_SUPABASE_URL`: URL de tu proyecto
    - `VITE_SUPABASE_ANON_KEY`: clave anónima (Settings > API)

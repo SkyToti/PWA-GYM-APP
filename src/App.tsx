@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import Auth from './components/Auth'
 import WorkoutView from './components/WorkoutView'
+import ProgressView from './components/ProgressView'
 
 export default function App() {
   const [userId, setUserId] = useState<string | null>(null)
@@ -38,5 +39,14 @@ export default function App() {
     return <Auth onAuth={() => setSkippedAuth(true)} />
   }
 
-  return <WorkoutView userId={userId} />
+  return <MainApp userId={userId} />
+}
+
+function MainApp({ userId }: { userId: string | null }) {
+  const [activeTab, setActiveTab] = useState<'workout' | 'progress'>('workout')
+  return activeTab === 'workout' ? (
+    <WorkoutView userId={userId} activeTab={activeTab} onTabChange={setActiveTab} />
+  ) : (
+    <ProgressView userId={userId} activeTab={activeTab} onTabChange={setActiveTab} />
+  )
 }

@@ -1,22 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { openIDB } from '../lib/idb'
 import type { WorkoutLogs } from '../lib/supabase'
 
-const IDB_NAME = 'prime_tracker_idb'
 const IDB_STORE = 'workout_logs'
 const IDB_KEY = 'logs'
 const DEBOUNCE_MS = 1000
-
-function openIDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, 1)
-    req.onerror = () => reject(req.error)
-    req.onsuccess = () => resolve(req.result)
-    req.onupgradeneeded = () => {
-      req.result.createObjectStore(IDB_STORE)
-    }
-  })
-}
 
 async function getFromIDB(): Promise<WorkoutLogs> {
   const db = await openIDB()
