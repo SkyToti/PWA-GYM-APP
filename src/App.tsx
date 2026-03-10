@@ -4,7 +4,6 @@ import Auth from './components/Auth'
 import WorkoutView from './components/WorkoutView'
 
 const ProgressView = lazy(() => import('./components/ProgressView'))
-import UpdatePrompt from './components/UpdatePrompt'
 import InstallPrompt from './components/InstallPrompt'
 
 export default function App() {
@@ -45,7 +44,6 @@ export default function App() {
   return (
     <>
       <MainApp userId={userId} />
-      <UpdatePrompt />
       <InstallPrompt />
     </>
   )
